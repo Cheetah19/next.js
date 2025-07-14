@@ -775,5 +775,10 @@
   "774": "Route %s used %s outside of a Server Component. This is not allowed.",
   "775": "Node.js instrumentation extensions should not be loaded in the Edge runtime.",
   "776": "`unstable_isUnrecognizedActionError` can only be used on the client.",
-  "777": "Invariant: failed to find source route %s for prerender %s"
+  "777": "Invariant: failed to find source route %s for prerender %s",
+  "778": "Invariant: page postponed without cache components being enabled",
+  "779": "createPrerenderPathname cannot be called with the prerender-legacy work unit type.",
+  "780": "\\`experimental.ppr\\` cannot be set to \"incremental\" as cache components does not support it. Please remove it from %s.",
+  "781": "Invariant: cache components cannot be enabled in export mode",
+  "782": "\\`experimental.ppr\\` and \\`experimental.cacheComponents\\` cannot be set to different values. Please remove \\`experimental.ppr\\` from %s."
 }
