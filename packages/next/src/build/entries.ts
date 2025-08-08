@@ -13,7 +13,7 @@ import type { LoadedEnvFiles } from '@next/env'
 import type { AppLoaderOptions } from './webpack/loaders/next-app-loader'
 
 import { posix, join, dirname, extname, normalize, parse } from 'path'
-import { copyFile, mkdir, stat } from 'fs/promises'
+import { copyFile, mkdir, stat, writeFile } from 'fs/promises'
 import { stringify } from 'querystring'
 import fs from 'fs'
 import {
@@ -81,6 +81,8 @@ import { createValidFileMatcher } from '../server/lib/find-page-file'
 import { isReservedPage } from './utils'
 import { isParallelRouteSegment } from '../shared/lib/segment'
 import { ensureLeadingSlash } from '../shared/lib/page-path/ensure-leading-slash'
+import { getNamedRouteRegex } from '../shared/lib/router/utils/route-regex'
+import { normalizeRouteRegex } from '../lib/load-custom-routes'
 
 /**
  * Collect app pages and layouts from the app directory
@@ -576,6 +578,15 @@ export async function copyMetadataStaticFiles({
   if (pagesType !== PAGE_TYPES.APP) {
     return
   }
+
+  const staticMetadataRoutesManifest: Record<
+    string,
+    {
+      regex: string
+      sourcePage: string
+    }
+  > = {}
+
   const promises = pagePaths.map<Promise<void>>(async (pagePath) => {
     const pageKey = getPageFromPath(pagePath, pageExtensions)
     const route = normalizeMetadataRoute(pageKey)
@@ -585,12 +596,10 @@ export async function copyMetadataStaticFiles({
     }
 
     const filePath = join(appDir, pagePath)
-    const targetPath = join(
-      distDir,
-      'static',
-      'metadata',
-      normalizeAppPath(route.replace('/__static_metadata_file__', ''))
+    const routePath = normalizeAppPath(
+      route.replace('/__static_metadata_file__', '')
     )
+    const targetPath = join(distDir, 'static', 'metadata', routePath)
 
     const filename = parse(filePath).name
     // Use 'includes' since they can have suffixes.
@@ -623,9 +632,24 @@ export async function copyMetadataStaticFiles({
 
     await mkdir(dirname(targetPath), { recursive: true })
     await copyFile(filePath, targetPath)
+
+    // Copied method from pageToRoute()
+    const routeRegex = getNamedRouteRegex(routePath, {
+      prefixRouteKeys: true,
+    })
+    staticMetadataRoutesManifest[routePath] = {
+      regex: normalizeRouteRegex(routeRegex.re.source),
+      sourcePage: `_next/static/metadata${routePath}`,
+    }
   })
 
   await Promise.all(promises)
+  // This is only used for minimal mode.
+  await writeFile(
+    join(distDir, 'static-metadata-routes-manifest.json'),
+    JSON.stringify(staticMetadataRoutesManifest, null, 2),
+    'utf-8'
+  )
 }
 
 export interface CreateEntrypointsParams {
