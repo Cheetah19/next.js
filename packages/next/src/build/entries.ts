@@ -68,7 +68,10 @@ import {
   isInternalComponent,
   isNonRoutePagesPage,
 } from '../lib/is-internal-component'
-import { isMetadataRouteFile } from '../lib/metadata/is-metadata-route'
+import {
+  isMetadataRouteFile,
+  isMetadataRouteStaticFile,
+} from '../lib/metadata/is-metadata-route'
 import { RouteKind } from '../server/route-kind'
 import { encodeToBase64 } from './webpack/loaders/utils'
 import { normalizeCatchAllRoutes } from './normalize-catchall-routes'
@@ -451,7 +454,6 @@ export async function createPagesMapping({
   pagesType,
   pagesDir,
   appDir,
-  isExportMode,
 }: {
   isDev: boolean
   pageExtensions: PageExtensions
@@ -459,8 +461,6 @@ export async function createPagesMapping({
   pagesType: PAGE_TYPES
   pagesDir: string | undefined
   appDir: string | undefined
-  // TODO(jiwon): This is a temporary flag to exclude copying metadata files in export mode.
-  isExportMode?: boolean
 }): Promise<MappedPages> {
   const isAppRoute = pagesType === 'app'
   const pages: MappedPages = {}
@@ -489,16 +489,13 @@ export async function createPagesMapping({
       )
     )
 
-    let route =
-      pagesType === 'app'
-        ? normalizeMetadataRoute(pageKey, isExportMode)
-        : pageKey
-
-    if (route.endsWith('/__static_metadata_file__')) {
-      // These files will be copied under {distDir}/static/metadata/...
-      // and served as static files on requests.
+    if (pagesType === 'app' && isMetadataRouteStaticFile(pageKey)) {
+      // These files will be copied under ".next/static/metadata/" and served
+      // as static files on requests.
       return
     }
+
+    let route = pagesType === 'app' ? normalizeMetadataRoute(pageKey) : pageKey
 
     if (
       pagesType === 'app' &&
@@ -595,18 +592,15 @@ export async function copyMetadataStaticFiles({
 
   const promises = pagePaths.map<Promise<void>>(async (pagePath) => {
     const pageKey = getPageFromPath(pagePath, pageExtensions)
-    const route = normalizeMetadataRoute(pageKey)
 
-    if (!route.endsWith('/__static_metadata_file__')) {
+    if (!isMetadataRouteStaticFile(pageKey)) {
       return
     }
 
-    const filePath = join(appDir, pagePath)
-    const routePath = normalizeAppPath(
-      route.replace('/__static_metadata_file__', '')
-    )
+    const routePath = normalizeAppPath(normalizeMetadataRoute(pageKey))
     const targetPath = join(distDir, 'static', 'metadata', routePath)
 
+    const filePath = join(appDir, pagePath)
     const filename = parse(filePath).name
     // Use 'includes' since they can have suffixes.
     const isTwitter = filename.includes('twitter-image')
