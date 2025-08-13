@@ -221,7 +221,15 @@ function warnCustomizedOption(
   }
 }
 
-function assignDefaults(
+/**
+ * Assigns defaults to the user config and validates the config.
+ *
+ * @param dir - The directory of the project.
+ * @param userConfig - The user config.
+ * @param silent - Whether to suppress warnings.
+ * @returns The complete config.
+ */
+function assignDefaultsAndValidate(
   dir: string,
   userConfig: NextConfig & { configFileName: string },
   silent: boolean
@@ -1147,6 +1155,18 @@ function assignDefaults(
     result.experimental.ppr = true
   }
 
+  // We require clientSegmentCache to be enabled if clientParamParsing is
+  // enabled. This is because clientParamParsing is only relevant when
+  // clientSegmentCache is enabled.
+  if (
+    result.experimental.clientParamParsing &&
+    !result.experimental.clientSegmentCache
+  ) {
+    throw new Error(
+      `\`experimental.clientParamParsing\` can not be \`true\` when \`experimental.clientSegmentCache\` is \`false\`. Client param parsing is only relevant when client segment cache is enabled.`
+    )
+  }
+
   return result as NextConfigComplete
 }
 
@@ -1303,7 +1323,7 @@ export default async function loadConfig(
     checkDeprecations(customConfig as NextConfig, configFileName, silent, dir)
 
     const config = await applyModifyConfig(
-      assignDefaults(
+      assignDefaultsAndValidate(
         dir,
         {
           configOrigin: 'server',
@@ -1542,7 +1562,7 @@ export default async function loadConfig(
       phase,
     })
 
-    const completeConfig = assignDefaults(
+    const completeConfig = assignDefaultsAndValidate(
       dir,
       {
         configOrigin: relative(dir, path),
@@ -1600,7 +1620,7 @@ export default async function loadConfig(
 
   // always call assignDefaults to ensure settings like
   // reactRoot can be updated correctly even with no next.config.js
-  const completeConfig = assignDefaults(
+  const completeConfig = assignDefaultsAndValidate(
     dir,
     { ...clonedDefaultConfig, configFileName },
     silent
