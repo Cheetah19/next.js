@@ -1865,15 +1865,33 @@ describe('app-dir action handling', () => {
 
   describe('action discarding', () => {
     it('should not trigger a refresh for a server action that gets discarded due to a navigation (without revalidation)', async () => {
-      let browser = await next.browser('/client')
+      let browser = await next.browser('/action-discarding')
       const initialRandomNumber = await browser
         .elementByCss('#cached-random')
         .text()
 
-      await browser.elementByCss('#slow-inc').click()
+      // Verify the cache is stable by navigating away and back
+      await retry(
+        async () => {
+          await browser.elementByCss('#navigate-destination').click()
+          await browser.waitForElementByCss('#destination-page')
+          await browser.back()
+          await browser.waitForElementByCss('#slow-action')
 
-      // navigate to server
-      await browser.elementByCss('#navigate-server').click()
+          const verifyNumber = await browser
+            .elementByCss('#cached-random')
+            .text()
+          expect(verifyNumber).toBe(initialRandomNumber)
+        },
+        5000,
+        1000,
+        'cache stability check'
+      )
+
+      await browser.elementByCss('#slow-action').click()
+
+      // navigate to destination
+      await browser.elementByCss('#navigate-destination').click()
 
       // wait for the 2s action to finish
       await waitFor(2000)
@@ -1888,15 +1906,33 @@ describe('app-dir action handling', () => {
     })
 
     it('should trigger a refresh for a server action that gets discarded due to a navigation (with revalidation)', async () => {
-      let browser = await next.browser('/client')
+      let browser = await next.browser('/action-discarding')
       const initialRandomNumber = await browser
         .elementByCss('#cached-random')
         .text()
 
-      await browser.elementByCss('#slow-inc-revalidate').click()
+      // Verify the cache is stable by navigating away and back
+      await retry(
+        async () => {
+          await browser.elementByCss('#navigate-destination').click()
+          await browser.waitForElementByCss('#destination-page')
+          await browser.back()
+          await browser.waitForElementByCss('#slow-action')
 
-      // navigate to server
-      await browser.elementByCss('#navigate-server').click()
+          const verifyNumber = await browser
+            .elementByCss('#cached-random')
+            .text()
+          expect(verifyNumber).toBe(initialRandomNumber)
+        },
+        5000,
+        1000,
+        'cache stability check'
+      )
+
+      await browser.elementByCss('#slow-action-revalidate').click()
+
+      // navigate to destination
+      await browser.elementByCss('#navigate-destination').click()
 
       // wait for the 2s action to finish
       await waitFor(2000)
