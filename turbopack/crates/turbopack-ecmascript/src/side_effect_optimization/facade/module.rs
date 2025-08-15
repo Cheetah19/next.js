@@ -307,6 +307,8 @@ impl EcmascriptChunkPlaceable for EcmascriptModuleFacadeModule {
                             .await?,
                         ),
                         original_export.clone(),
+                        // TODO: this is wrong, we should copy the liveness from the original
+                        // export
                         Liveness::Live,
                     ),
                 );
