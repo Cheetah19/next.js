@@ -2605,7 +2605,6 @@ export default abstract class Server<
 
       res.statusCode = 500
 
-      console.log('>>hasPage', await this.hasPage('/500'))
       // if pages/500 is present we still need to trigger
       // /_error `getInitialProps` to allow reporting error
       if (await this.hasPage('/500')) {
