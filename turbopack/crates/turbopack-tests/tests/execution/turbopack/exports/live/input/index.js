@@ -1,16 +1,15 @@
-import { foo, setFoo, bar, setBar } from './live_exports.js'
 import * as ns from './live_exports.js'
 
 it('hoisted declarations are live', () => {
-  expect(bar()).toBe('bar')
-  setBar(() => 'patched')
-  expect(bar()).toBe('patched')
+  expect(ns.bar()).toBe('bar')
+  ns.setBar(() => 'patched')
+  expect(ns.bar()).toBe('patched')
 })
 
 it('exported lets are live', () => {
-  expect(foo).toBe('foo')
-  setFoo('new')
-  expect(foo).toBe('new')
+  expect(ns.foo).toBe('foo')
+  ns.setFoo('new')
+  expect(ns.foo).toBe('new')
 })
 
 it('exported local bindings that are not mutated are not live', () => {

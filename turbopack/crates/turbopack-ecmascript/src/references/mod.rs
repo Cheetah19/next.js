@@ -820,10 +820,7 @@ pub(crate) async fn analyse_ecmascript_module_internal(
                         EsmExport::ImportedBinding(
                             ResolvedVc::upcast(reference),
                             imported.to_string().into(),
-                            // TODO(luke.sandberg): We could pick a better liveness if we knew the
-                            // liveness of the thing we were importing.  It is difficult from here
-                            // but it could be done later when generating code.
-                            Liveness::Live,
+                            false,
                         ),
                     );
                     analysis.add_esm_reexport_reference(i);
@@ -3328,9 +3325,7 @@ impl VisitAstPath for ModuleReferencesVisitor<'_> {
                                     EsmExport::ImportedBinding(
                                         ResolvedVc::upcast(esm_ref),
                                         export,
-                                        // TODO: this is wrong, we need to check the liveness of
-                                        // the exported name
-                                        Liveness::Live,
+                                        false,
                                     )
                                 } else {
                                     EsmExport::ImportedNamespace(ResolvedVc::upcast(esm_ref))
