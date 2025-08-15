@@ -780,5 +780,7 @@
   "779": "Route %s used \"searchParams\" inside \"use cache\". Accessing dynamic request data inside a cache scope is not supported. If you need some search params inside a cached function await \"searchParams\" outside of the cached function and pass only the required search params as arguments to the cached function. See more info here: https://nextjs.org/docs/messages/next-request-in-use-cache",
   "780": "Invariant: failed to find parent dynamic route for notFound route %s",
   "781": "\\`experimental.clientParamParsing\\` can not be \\`true\\` when \\`experimental.clientSegmentCache\\` is \\`false\\`. Client param parsing is only relevant when client segment cache is enabled.",
-  "782": "Unexpected dynamic param type: %s"
+  "782": "Unexpected dynamic param type: %s",
+  "783": "Expected RSC response, got %s",
+  "784": "Invariant: Expected RSC response, got %s"
 }
