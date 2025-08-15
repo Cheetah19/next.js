@@ -3583,14 +3583,13 @@ impl<'a> ModuleReferencesVisitor<'a> {
                 *assignment_kinds != crate::analyzer::graph::AssignmentKinds::AllInRootScope
             }
             None => {
-                match self.var_graph.free_var_ids.get(&ident.sym) {
-                    Some(id) => {
-                        // We have matched a free var, this is live
-                        id == &ident.to_id()
-                    }
-                    None => {
-                        unreachable!("all exported names should be analyzed, can't find {ident:?}",)
-                    }
+                if ident.ctxt.outer() == self.eval_context.unresolved_mark
+                    || self.eval_context.force_free_values.contains(&ident.to_id())
+                {
+                    // free variables are live
+                    true
+                } else {
+                    unreachable!("all exported names should be analyzed, can't find {ident:?}",)
                 }
             }
         }
