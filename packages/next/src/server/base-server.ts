@@ -2795,20 +2795,20 @@ export default abstract class Server<
             page: statusPage,
             query,
             params: {},
-            isAppPath: true,
+            isAppPath: false,
             // Ensuring can't be done here because you never "match" a 500
             // route.
             shouldEnsure: true,
             url: ctx.req.url,
           })
-          if (!result) {
+          if (!result && statusPage === '/500') {
             // try load pages router 500 page
             result = await this.findPageComponents({
               locale: getRequestMeta(ctx.req, 'locale'),
               page: statusPage,
               query,
               params: {},
-              isAppPath: false,
+              isAppPath: true,
               // Ensuring can't be done here because you never "match" a 500
               // route.
               shouldEnsure: true,
