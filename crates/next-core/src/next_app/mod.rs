@@ -67,8 +67,18 @@ impl PageSegment {
             bail!("slashes are not allowed in segments");
         }
 
+        if let Some(s) = segment
+            .strip_prefix("(...)")
+            .or_else(|| segment.strip_prefix("(..)"))
+            .or_else(|| segment.strip_prefix("(.)"))
+        {
+            return Ok(PageSegment::Static(s.into()));
+        }
+
         if let Some(s) = segment.strip_prefix('(').and_then(|s| s.strip_suffix(')')) {
-            return Ok(PageSegment::Group(s.into()));
+            if !s.starts_with(".") {
+                return Ok(PageSegment::Group(s.into()));
+            }
         }
 
         if let Some(s) = segment.strip_prefix('@') {

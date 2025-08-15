@@ -171,6 +171,7 @@ export async function handleRouteType({
   hooks?: HandleRouteTypeHooks // dev
 }) {
   const shouldCreateWebpackStats = process.env.TURBOPACK_STATS != null
+  console.log('handleRouteType', route.type)
 
   switch (route.type) {
     case 'page': {
