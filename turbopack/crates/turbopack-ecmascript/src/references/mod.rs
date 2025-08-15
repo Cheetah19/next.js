@@ -120,7 +120,6 @@ use super::{
     },
     errors,
     parse::ParseResult,
-    special_cases::special_cases,
     utils::js_value_to_pattern,
     webpack::{
         WebpackChunkAssetReference, WebpackEntryAssetReference, WebpackRuntimeAssetReference,
@@ -515,7 +514,7 @@ pub(crate) async fn analyse_ecmascript_module_internal(
     let origin = ResolvedVc::upcast::<Box<dyn ResolveOrigin>>(module);
 
     let mut analysis = AnalyzeEcmascriptModuleResultBuilder::new();
-    let path = origin.origin_path().owned().await?;
+    let path = &*origin.origin_path().await?;
 
     // Is this a typescript file that requires analyzing type references?
     let analyze_types = match &ty {
@@ -524,6 +523,7 @@ pub(crate) async fn analyse_ecmascript_module_internal(
         EcmascriptModuleAssetType::Ecmascript => false,
     };
 
+    // Split out our module part if we have one.
     let parsed = if let Some(part) = part {
         let parsed = parse(*source, ty, *transforms);
         let split_data = split(source.ident(), *source, parsed);
@@ -569,8 +569,6 @@ pub(crate) async fn analyse_ecmascript_module_internal(
         .instrument(span)
         .await?;
     }
-
-    special_cases(&path.path, &mut analysis);
 
     let parsed = parsed.await?;
 
@@ -954,6 +952,7 @@ pub(crate) async fn analyse_ecmascript_module_internal(
         .instrument(span)
         .await?;
     }
+    // TODO: we can do this when constructing the var graph
     let span = tracing::info_span!("async module handling");
     async {
         let top_level_await_span =
@@ -3314,20 +3313,6 @@ impl VisitAstPath for ModuleReferencesVisitor<'_> {
                         );
                     }
                     ExportSpecifier::Named(ExportNamedSpecifier { orig, exported, .. }) => {
-                        let exported_name_is_live = match orig {
-                            ModuleExportName::Ident(ident) => self.is_export_ident_live(ident),
-                            ModuleExportName::Str(_) => {
-                                unreachable!("original export names cannot be string literals")
-                            }
-                        };
-                        let liveness = match (is_fake_esm, exported_name_is_live) {
-                            // Can we downgrade mutable to live when the exported
-                            // name isn't mutated after eval?
-                            (true, _) => Liveness::Mutable,
-                            (false, true) => Liveness::Live,
-                            (false, false) => Liveness::Constant,
-                        };
-
                         let key = to_rcstr(exported.as_ref().unwrap_or(orig));
                         let binding_name = to_rcstr(orig);
                         let export = {
@@ -3343,12 +3328,31 @@ impl VisitAstPath for ModuleReferencesVisitor<'_> {
                                     EsmExport::ImportedBinding(
                                         ResolvedVc::upcast(esm_ref),
                                         export,
-                                        liveness,
+                                        // TODO: this is wrong, we need to check the liveness of
+                                        // the exported name
+                                        Liveness::Live,
                                     )
                                 } else {
                                     EsmExport::ImportedNamespace(ResolvedVc::upcast(esm_ref))
                                 }
                             } else {
+                                let exported_name_is_live = match orig {
+                                    ModuleExportName::Ident(ident) => {
+                                        self.is_export_ident_live(ident)
+                                    }
+                                    ModuleExportName::Str(_) => {
+                                        unreachable!(
+                                            "original export names cannot be string literals"
+                                        )
+                                    }
+                                };
+                                let liveness = match (is_fake_esm, exported_name_is_live) {
+                                    // Can we downgrade mutable to live when the exported
+                                    // name isn't mutated after eval?
+                                    (true, _) => Liveness::Mutable,
+                                    (false, true) => Liveness::Live,
+                                    (false, false) => Liveness::Constant,
+                                };
                                 EsmExport::LocalBinding(binding_name, liveness)
                             }
                         };
@@ -3576,10 +3580,19 @@ impl<'a> ModuleReferencesVisitor<'a> {
             }) => {
                 // If all assignments to the exported name are in the root scope
                 // then it is not live.
-
-                *assignment_kinds == crate::analyzer::graph::AssignmentKinds::AllInRootScope
+                *assignment_kinds != crate::analyzer::graph::AssignmentKinds::AllInRootScope
             }
-            None => unreachable!("all exported names should be analyzed, can't find {ident:?}",),
+            None => {
+                match self.var_graph.free_var_ids.get(&ident.sym) {
+                    Some(id) => {
+                        // We have matched a free var, this is live
+                        id == &ident.to_id()
+                    }
+                    None => {
+                        unreachable!("all exported names should be analyzed, can't find {ident:?}",)
+                    }
+                }
+            }
         }
     }
 }
