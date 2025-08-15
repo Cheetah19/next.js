@@ -610,7 +610,7 @@ export function useDynamicRouteParams(expression: string) {
       case 'prerender-client':
       case 'prerender': {
         const fallbackParams = workUnitStore.fallbackRouteParams
-        if (fallbackParams && fallbackParams.size > 0) {
+        if (fallbackParams && fallbackParams.sizes.route > 0) {
           // We are in a prerender with cacheComponents semantics. We are going to
           // hang here and never resolve. This will cause the currently
           // rendering component to effectively be a dynamic hole.
@@ -626,7 +626,7 @@ export function useDynamicRouteParams(expression: string) {
       }
       case 'prerender-ppr': {
         const fallbackParams = workUnitStore.fallbackRouteParams
-        if (fallbackParams && fallbackParams.size > 0) {
+        if (fallbackParams && fallbackParams.sizes.route > 0) {
           return postponeWithTracking(
             workStore.route,
             expression,

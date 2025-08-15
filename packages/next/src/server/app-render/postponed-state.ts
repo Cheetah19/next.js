@@ -64,7 +64,7 @@ export async function getDynamicHTMLPostponedState(
   fallbackRouteParams: OpaqueFallbackRouteParams | null,
   resumeDataCache: PrerenderResumeDataCache | RenderResumeDataCache
 ): Promise<string> {
-  if (!fallbackRouteParams || fallbackRouteParams.size === 0) {
+  if (!fallbackRouteParams || fallbackRouteParams.sizes.route === 0) {
     const postponedString = JSON.stringify(data)
 
     // Serialized as `<postponedString.length>:<postponedString><renderResumeDataCache>`
