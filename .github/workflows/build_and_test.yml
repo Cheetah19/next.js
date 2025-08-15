@@ -606,7 +606,7 @@ jobs:
       afterBuild: |
         export NEXT_E2E_TEST_TIMEOUT=240000
         export GH_PR_NUMBER=${{ github.event.pull_request && github.event.pull_request.number || '' }}
-        export VERCEL_CLI_VERSION="https://files-qidq1rfxl-huozhis-projects.vercel.app/vercel-45.0.9.tgz"
+        export VERCEL_CLI_VERSION="https://files-m0eefl3px-huozhis-projects.vercel.app/vercel-45.0.9.tgz"
         node scripts/test-new-tests.mjs \
           --mode deploy \
           --group ${{ matrix.group }}
