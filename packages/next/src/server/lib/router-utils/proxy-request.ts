@@ -88,6 +88,7 @@ export async function proxyRequest(
           res.statusCode = 500
         }
 
+        console.trace('>>proxy-request err', err)
         res.end('Internal Server Error')
       }
     }

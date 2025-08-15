@@ -1582,6 +1582,7 @@ export default abstract class Server<
         throw err
       }
       this.logError(getProperError(err))
+      console.trace('>>base-server err', err)
       res.statusCode = 500
       res.body('Internal Server Error').send()
     }
@@ -2604,6 +2605,7 @@ export default abstract class Server<
 
       res.statusCode = 500
 
+      console.log('>>hasPage', await this.hasPage('/500'))
       // if pages/500 is present we still need to trigger
       // /_error `getInitialProps` to allow reporting error
       if (await this.hasPage('/500')) {
@@ -2794,12 +2796,26 @@ export default abstract class Server<
             page: statusPage,
             query,
             params: {},
-            isAppPath: false,
+            isAppPath: true,
             // Ensuring can't be done here because you never "match" a 500
             // route.
             shouldEnsure: true,
             url: ctx.req.url,
           })
+          if (!result) {
+            // try load pages router 500 page
+            result = await this.findPageComponents({
+              locale: getRequestMeta(ctx.req, 'locale'),
+              page: statusPage,
+              query,
+              params: {},
+              isAppPath: false,
+              // Ensuring can't be done here because you never "match" a 500
+              // route.
+              shouldEnsure: true,
+              url: ctx.req.url,
+            })
+          }
         }
       }
 

@@ -231,6 +231,7 @@ export async function startServer(
       await requestHandler(req, res)
     } catch (err) {
       res.statusCode = 500
+      console.trace('>>start-server err', err)
       res.end('Internal Server Error')
       Log.error(`Failed to handle request for ${req.url}`)
       console.error(err)

@@ -33,6 +33,9 @@ const styles: Record<string, React.CSSProperties> = {
   },
 } as const
 
+const themeCss = `body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}
+@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}`
+
 function AppError() {
   const errorMessage = 'Internal Server Error.'
   const title = `500: ${errorMessage}`
@@ -44,7 +47,31 @@ function AppError() {
       <body>
         <div style={styles.error}>
           <div style={styles.desc}>
-            <h1 style={styles.h1}>500</h1>
+            <style
+              dangerouslySetInnerHTML={{
+                /* CSS minified from
+                body { margin: 0; color: #000; background: #fff; }
+                .next-error-h1 {
+                  border-right: 1px solid rgba(0, 0, 0, .3);
+                }
+
+                ${
+                  withDarkMode
+                    ? `@media (prefers-color-scheme: dark) {
+                  body { color: #fff; background: #000; }
+                  .next-error-h1 {
+                    border-right: 1px solid rgba(255, 255, 255, .3);
+                  }
+                }`
+                    : ''
+                }
+               */
+                __html: themeCss,
+              }}
+            />
+            <h1 className="next-error-h1" style={styles.h1}>
+              500
+            </h1>
             <div style={styles.wrap}>
               <h2 style={styles.h2}>{errorMessage}</h2>
             </div>
