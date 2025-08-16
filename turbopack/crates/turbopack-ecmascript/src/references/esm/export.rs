@@ -725,13 +725,14 @@ impl EsmExports {
                                         // If the value might change or we are a circuit breaker we must bind a
                                         // getter to avoid capturing the value at the wrong time.
                                         (Liveness::Live, _) | (Liveness::Constant, true) => {
-                                            ExportBinding::Getter(quote!("() => $local" as Expr, local: Expr= read_expr))
+                                            ExportBinding::Getter(quote!("() => $local" as Expr, local: Expr = read_expr))
                                         }
                                         (Liveness::Mutable, _) => ExportBinding::GetterSetter(
                                             quote!("() => $local" as Expr, local: Expr= read_expr.clone()),
                                             quote!(
                                                 "($new) => $lhs = $new" as Expr,
-                                                lhs: Expr = read_expr as Expr,
+                                                lhs: AssignTarget = AssignTarget::Simple(
+                                                        ident.as_expr_individual(DUMMY_SP).map_either(|i| SimpleAssignTarget::Ident(i.into()), SimpleAssignTarget::Member).into_inner()),
                                                 new = Ident::new(format!("new_{name}").into(), DUMMY_SP, *ctxt),
                                             ),
                                         ),
