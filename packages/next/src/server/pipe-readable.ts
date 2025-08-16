@@ -79,6 +79,13 @@ function createWriterFromResponse(
       }
 
       try {
+        // console.error('===========================')
+        // console.error(
+        //   `WRITER ${performance.now() - start}\n` +
+        //     new TextDecoder().decode(chunk)
+        // )
+        // console.error('===========================')
+
         const ok = res.write(chunk)
 
         // Added by the `compression` middleware, this is a function that will

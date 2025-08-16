@@ -2241,6 +2241,7 @@ async function renderToStream(
 
       reactServerResult = new ReactServerResult(reactServerStream)
     } else {
+      console.log('app-render :: rendering dynamically')
       // This is a dynamic render. We don't do dynamic tracking because we're not prerendering
       const RSCPayload = await workUnitAsyncStorage.run(
         requestStore,
@@ -2273,6 +2274,7 @@ async function renderToStream(
     // provided to React.
     if (typeof renderOpts.postponed === 'string') {
       if (postponedState?.type === DynamicState.DATA) {
+        console.error('app-render :: postponed - DATA')
         // We have a complete HTML Document in the prerender but we need to
         // still include the new server component render because it was not included
         // in the static prelude.
@@ -2287,8 +2289,22 @@ async function renderToStream(
           createDocumentClosingStream()
         )
       } else if (postponedState) {
+        console.error('app-render :: postponed - OTHER')
         // We assume we have dynamic HTML requiring a resume render to complete
         const postponed = getPostponedFromState(postponedState)
+
+        // HACK: detect whether the prelude contained <html> and <body>.
+        // If it didn't (e.g. for Suspense above body), we can't emit any RSC scripts
+        // until the shell is rendered.
+        // TODO: we should just collect this information during the prerender instead of inspecting react internals.
+        type ReactInternalPostponedState = {
+          resumableState: { hasBody: boolean; hasHtml: boolean }
+        }
+        const postponedWithInternals = postponed as ReactInternalPostponedState
+        const waitForHtmlShell = !(
+          postponedWithInternals.resumableState.hasHtml &&
+          postponedWithInternals.resumableState.hasBody
+        )
 
         const resume = (
           require('react-dom/server') as typeof import('react-dom/server')
@@ -2316,6 +2332,7 @@ async function renderToStream(
           tracingMetadata: tracingMetadata,
         })
         return await continueDynamicHTMLResume(htmlStream, {
+          waitForHtmlShell,
           inlinedDataStream: createInlinedDataReadableStream(
             reactServerResult.consume(),
             nonce,

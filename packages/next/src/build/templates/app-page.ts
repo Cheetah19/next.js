@@ -329,6 +329,19 @@ export async function handler(
     stripFlightHeaders(req.headers)
   }
 
+  console.log('app-page :: handler', {
+    isSSG,
+    _isSSG: {
+      prerenderInfo,
+      isPrerendered,
+      [`prerenderManifest.routes[normalizedSrcPage]`]:
+        prerenderManifest.routes[normalizedSrcPage],
+    },
+    isRoutePPREnabled,
+    supportsDynamicResponse,
+    ssgCacheKey,
+  })
+
   const ComponentMod = {
     ...entryBase,
     tree,
@@ -676,6 +689,13 @@ export async function handler(
         fallbackMode = FallbackMode.BLOCKING_STATIC_RENDER
       }
 
+      console.log('app-page :: responseGenerator', {
+        fallbackMode,
+        isHtmlBot,
+        isOnDemandRevalidate,
+        prerenderInfo,
+      })
+
       if (
         !minimalMode &&
         fallbackMode !== FallbackMode.BLOCKING_STATIC_RENDER &&
@@ -791,6 +811,14 @@ export async function handler(
     }
 
     const handleResponse = async (span?: Span): Promise<null | void> => {
+      console.log('app-page :: handleResponse', {
+        isHtmlBot,
+        isOnDemandRevalidate,
+        isRoutePPREnabled,
+        isPrerendered,
+        isSSG,
+        prerenderInfo,
+      })
       const cacheEntry = await routeModule.handleResponse({
         cacheKey: ssgCacheKey,
         responseGenerator: (c) =>
@@ -838,6 +866,7 @@ export async function handler(
       }
 
       const didPostpone = typeof cacheEntry.value.postponed === 'string'
+      console.log('app-page :: handleResponse - cacheEntry', cacheEntry)
 
       if (
         isSSG &&
@@ -1181,6 +1210,7 @@ export async function handler(
       // Perform the render again, but this time, provide the postponed state.
       // We don't await because we want the result to start streaming now, and
       // we've already chained the transformer's readable to the render result.
+      console.log('app-page :: handleResponse - starting doRender')
       doRender({
         span,
         postponed: cachedData.postponed,
@@ -1200,6 +1230,7 @@ export async function handler(
           }
 
           // Pipe the resume result to the transformer.
+          console.log('app-page :: handleResponse - doRender finished')
           await result.value.html.pipeTo(transformer.writable)
         })
         .catch((err) => {

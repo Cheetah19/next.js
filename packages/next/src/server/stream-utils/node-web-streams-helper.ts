@@ -449,34 +449,44 @@ function createDeferredSuffixStream(
   })
 }
 
-// Merge two streams into one. Ensure the final transform stream is closed
-// when both are finished.
-function createMergedTransformStream(
-  stream: ReadableStream<Uint8Array>
+function createFlightDataInjectionTransformStream(
+  stream: ReadableStream<Uint8Array>,
+  { waitForHtmlShell }: { waitForHtmlShell: boolean }
 ): TransformStream<Uint8Array, Uint8Array> {
+  let htmlStreamFinished = false
+
   let pull: Promise<void> | null = null
   let donePulling = false
 
-  async function startPulling(controller: TransformStreamDefaultController) {
-    if (pull) {
-      return
+  function startOrContinuePulling(
+    controller: TransformStreamDefaultController
+  ) {
+    if (!pull) {
+      pull = startPulling(controller)
     }
+    return pull
+  }
 
+  async function startPulling(controller: TransformStreamDefaultController) {
+    console.log('RSC: STARTING PULL', { waitForHtmlShell })
     const reader = stream.getReader()
 
-    // NOTE: streaming flush
-    // We are buffering here for the inlined data stream because the
-    // "shell" stream might be chunkenized again by the underlying stream
-    // implementation, e.g. with a specific high-water mark. To ensure it's
-    // the safe timing to pipe the data stream, this extra tick is
-    // necessary.
+    if (waitForHtmlShell) {
+      // NOTE: streaming flush
+      // We are buffering here for the inlined data stream because the
+      // "shell" stream might be chunkenized again by the underlying stream
+      // implementation, e.g. with a specific high-water mark. To ensure it's
+      // the safe timing to pipe the data stream, this extra tick is
+      // necessary.
 
-    // We don't start reading until we've left the current Task to ensure
-    // that it's inserted after flushing the shell. Note that this implementation
-    // might get stale if impl details of Fizz change in the future.
-    await atLeastOneTask()
+      // We don't start reading until we've left the current Task to ensure
+      // that it's inserted after flushing the shell. Note that this implementation
+      // might get stale if impl details of Fizz change in the future.
+      await atLeastOneTask()
+    }
 
     try {
+      console.log('RSC: READING STREAM')
       while (true) {
         const { done, value } = await reader.read()
         if (done) {
@@ -484,6 +494,11 @@ function createMergedTransformStream(
           return
         }
 
+        if (!waitForHtmlShell && !htmlStreamFinished) {
+          await atLeastOneTask()
+        }
+        console.log('=========================')
+        console.log('RSC :', new TextDecoder().decode(value))
         controller.enqueue(value)
       }
     } catch (err) {
@@ -492,19 +507,27 @@ function createMergedTransformStream(
   }
 
   return new TransformStream({
+    start(controller) {
+      if (!waitForHtmlShell) {
+        startOrContinuePulling(controller)
+      }
+    },
     transform(chunk, controller) {
+      console.log('=========================')
+      console.log('HTML:', new TextDecoder().decode(chunk))
       controller.enqueue(chunk)
 
       // Start the streaming if it hasn't already been started yet.
-      if (!pull) {
-        pull = startPulling(controller)
+      if (waitForHtmlShell) {
+        startOrContinuePulling(controller)
       }
     },
     flush(controller) {
+      htmlStreamFinished = true
       if (donePulling) {
         return
       }
-      return pull || startPulling(controller)
+      return startOrContinuePulling(controller)
     },
   })
 }
@@ -711,7 +734,11 @@ export async function continueFizzStream(
       : null,
 
     // Insert the inlined data (Flight data, form state, etc.) stream into the HTML
-    inlinedDataStream ? createMergedTransformStream(inlinedDataStream) : null,
+    inlinedDataStream
+      ? createFlightDataInjectionTransformStream(inlinedDataStream, {
+          waitForHtmlShell: true,
+        })
+      : null,
 
     // Validate the root layout for missing html or body tags
     validateRootLayout ? createRootLayoutValidatorStream() : null,
@@ -781,7 +808,11 @@ export async function continueStaticPrerender(
       // Transform metadata
       .pipeThrough(createMetadataTransformStream(getServerInsertedMetadata))
       // Insert the inlined data (Flight data, form state, etc.) stream into the HTML
-      .pipeThrough(createMergedTransformStream(inlinedDataStream))
+      .pipeThrough(
+        createFlightDataInjectionTransformStream(inlinedDataStream, {
+          waitForHtmlShell: true,
+        })
+      )
       // Close tags should always be deferred to the end
       .pipeThrough(createMoveSuffixStream())
   )
@@ -791,11 +822,13 @@ type ContinueResumeOptions = {
   inlinedDataStream: ReadableStream<Uint8Array>
   getServerInsertedHTML: () => Promise<string>
   getServerInsertedMetadata: () => Promise<string>
+  waitForHtmlShell: boolean
 }
 
 export async function continueDynamicHTMLResume(
   renderStream: ReadableStream<Uint8Array>,
   {
+    waitForHtmlShell,
     inlinedDataStream,
     getServerInsertedHTML,
     getServerInsertedMetadata,
@@ -810,7 +843,14 @@ export async function continueDynamicHTMLResume(
       // Transform metadata
       .pipeThrough(createMetadataTransformStream(getServerInsertedMetadata))
       // Insert the inlined data (Flight data, form state, etc.) stream into the HTML
-      .pipeThrough(createMergedTransformStream(inlinedDataStream))
+      .pipeThrough(
+        createFlightDataInjectionTransformStream(inlinedDataStream, {
+          // The static shell is sent by the server itself (or by infrastructure),
+          // and we're only rendering dynamic HTML, so we shouldn't delay the stream --
+          // Doing so would prevent us from sending any RSC data until the first part of the dynamic HTML is rendered.
+          waitForHtmlShell,
+        })
+      )
       // Close tags should always be deferred to the end
       .pipeThrough(createMoveSuffixStream())
   )
