@@ -3578,14 +3578,11 @@ impl<'a> ModuleReferencesVisitor<'a> {
                 *assignment_kinds != crate::analyzer::graph::AssignmentKinds::AllInRootScope
             }
             None => {
-                if ident.ctxt.outer() == self.eval_context.unresolved_mark
-                    || self.eval_context.force_free_values.contains(&ident.to_id())
-                {
-                    // free variables are live
-                    true
-                } else {
-                    unreachable!("all exported names should be analyzed, can't find {ident:?}",)
-                }
+                // There are 2 cases where don't have a value
+                // names introduced by `import` statements
+                // free variables
+                // In both cases we need to treat the binding as live
+                true
             }
         }
     }
